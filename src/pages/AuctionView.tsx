@@ -53,8 +53,6 @@ const AuctionView: React.FC<AuctionProps> = ({ marketplaceAddr }) => {
     const [auctions, setAuctions] = useState<Auction[]>([]);
     const [bidAmounts, setBidAmounts] = useState<{ [key: number]: string }>({});
     const { account, signAndSubmitTransaction } = useWallet();
-    const [isStopAuctionModalVisible, setIsStopAuctionModalVisible] = useState(false);
-    const [selectedAuction, setSelectedAuction] = useState<Auction | null>(null);
 
     const fetchNFTDetails = async (nftId: number): Promise<NFTDetails> => {
         try {
@@ -172,38 +170,33 @@ const AuctionView: React.FC<AuctionProps> = ({ marketplaceAddr }) => {
                 type: "entry_function_payload",
                 function: `${marketplaceAddr}::NFTMarketplace::stop_auction`,
                 type_arguments: [],
-                arguments: [marketplaceAddr, auctionId.toString()]
+                arguments: [
+                    marketplaceAddr,  // marketplace address
+                    auctionId.toString()  // auction ID
+                ]
             };
     
-            const response = await (window as any).aptos.signAndSubmitTransaction(transaction);
-            await client.waitForTransaction(response.hash);
+            const pendingTransaction = await (window as any).aptos.signAndSubmitTransaction(transaction);
+            await client.waitForTransaction(pendingTransaction.hash);
+            
             message.success('Auction stopped successfully');
-            fetchAuctions(); // Refresh the auctions list
-        } catch (error) {
-            console.error('Error stopping auction:', error);
-            message.error('Failed to stop auction');
+            fetchAuctions(); // Refresh the NFT list
+        } catch (error: any) {
+            console.error('Stop auction error:', error);
+            
+            // More specific error messages
+            if (error.message?.includes('1201')) {
+                message.error('Only the auction seller can stop the auction');
+            } else if (error.message?.includes('1202')) {
+                message.error('This auction is no longer active');
+            } else if (error.message?.includes('1203')) {
+                message.error('This NFT is not in an auction state');
+            } else {
+                message.error('Failed to stop auction. Please try again.');
+            }
         }
     };
-
-    const stopAuction = async (auctionId: number) => {
-        try {
-            const transaction = {
-                type: "entry_function_payload",
-                function: `${marketplaceAddr}::NFTMarketplace::stop_auction`,
-                type_arguments: [],
-                arguments: [marketplaceAddr, auctionId.toString()]
-            };
-
-            const response = await (window as any).aptos.signAndSubmitTransaction(transaction);
-            await client.waitForTransaction(response.hash);
-            message.success('Auction stopped successfully!');
-            setIsStopAuctionModalVisible(false);
-            fetchAuctions();
-        } catch (error) {
-            console.error('Error stopping auction:', error);
-            message.error('Failed to stop auction');
-        }
-    };
+    
 
     useEffect(() => {
         fetchAuctions();
@@ -279,33 +272,6 @@ const AuctionView: React.FC<AuctionProps> = ({ marketplaceAddr }) => {
                     </Card>
                 ))}
             </div>
-
-            <Modal
-                title="Stop Auction"
-                visible={isStopAuctionModalVisible}
-                onCancel={() => setIsStopAuctionModalVisible(false)}
-                footer={[
-                    <Button key="cancel" onClick={() => setIsStopAuctionModalVisible(false)}>
-                        Cancel
-                    </Button>,
-                    <Button 
-                        key="stop" 
-                        type="primary" 
-                        danger
-                        onClick={() => selectedAuction && stopAuction(selectedAuction.id)}
-                    >
-                        Stop Auction
-                    </Button>
-                ]}
-            >
-                <p>Are you sure you want to stop this auction?</p>
-                {selectedAuction && (
-                    <>
-                        <p>NFT: {selectedAuction.nftDetails?.name}</p>
-                        <p>Current Bid: {selectedAuction.currentBid} APT</p>
-                    </>
-                )}
-            </Modal>
         </div>
     );
 };

@@ -168,15 +168,30 @@ const MyNFTs: React.FC = () => {
             type: "entry_function_payload",
             function: `${marketplaceAddr}::NFTMarketplace::stop_auction`,
             type_arguments: [],
-            arguments: [marketplaceAddr, auctionId.toString()]
+            arguments: [
+                marketplaceAddr,  // marketplace address
+                auctionId.toString()  // auction ID
+            ]
         };
 
-        const response = await (window as any).aptos.signAndSubmitTransaction(transaction);
-        await client.waitForTransaction(response.hash);
+        const pendingTransaction = await (window as any).aptos.signAndSubmitTransaction(transaction);
+        await client.waitForTransaction(pendingTransaction.hash);
+        
         message.success('Auction stopped successfully');
-    } catch (error) {
-        console.error('Error stopping auction:', error);
-        message.error('Failed to stop auction');
+        fetchUserNFTs(); // Refresh the NFT list
+    } catch (error: any) {
+        console.error('Stop auction error:', error);
+        
+        // More specific error messages
+        if (error.message?.includes('1201')) {
+            message.error('Only the auction seller can stop the auction');
+        } else if (error.message?.includes('1202')) {
+            message.error('This auction is no longer active');
+        } else if (error.message?.includes('1203')) {
+            message.error('This NFT is not in an auction state');
+        } else {
+            message.error('Failed to stop auction. Please try again.');
+        }
     }
 };
 
