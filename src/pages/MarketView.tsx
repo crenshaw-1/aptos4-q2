@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Typography, Radio, message, Card, Row, Col, Pagination, Tag, Button, Modal } from "antd";
 import { AptosClient } from "aptos";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
+import { Slider, Select, Space } from 'antd';
 
 const { Title } = Typography;
 const { Meta } = Card;
@@ -50,16 +51,37 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr }) => {
 
   const [isBuyModalVisible, setIsBuyModalVisible] = useState(false);
   const [selectedNft, setSelectedNft] = useState<NFT | null>(null);
+  const [priceRange, setPriceRange] = useState([0, 1000]);
+  const [sortBy, setSortBy] = useState('latest');
 
   useEffect(() => {
     handleFetchNfts(undefined);
   }, []);
 
+  const getFilteredNFTs = () => {
+    return nfts.filter(nft => 
+      nft.price >= priceRange[0] && 
+      nft.price <= priceRange[1] &&
+      (rarity === 'all' || nft.rarity === rarity)
+    ).sort((a, b) => {
+      switch(sortBy) {
+        case 'price_asc':
+          return a.price - b.price;
+        case 'price_desc':
+          return b.price - a.price;
+        case 'rarity':
+          return b.rarity - a.rarity;
+        default:
+          return b.id - a.id;
+      }
+    });
+  };
+
   const handleFetchNfts = async (selectedRarity: number | undefined) => {
     try {
         const response = await client.getAccountResource(
             marketplaceAddr,
-            "0x0dfcbff56c48e150cf9d73b19b625da39e90dcbe531429fdcd90d311b63413ed::NFTMarketplace::Marketplace"
+            "0x8a7bb6820951395ea0a351ff4ba8c551daf013f652e0791a7b60b67f71ced7b6::NFTMarketplace::Marketplace"
         );
         const nftList = (response.data as { nfts: NFT[] }).nfts;
 
@@ -126,7 +148,9 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr }) => {
     }
   };
 
-  const paginatedNfts = nfts.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+ const filteredNfts = getFilteredNFTs();
+
+  const paginatedNfts = filteredNfts.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div
@@ -139,6 +163,30 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr }) => {
     >
       <Title level={2} style={{ marginBottom: "20px" }}>Marketplace</Title>
   
+      <Space direction="vertical" style={{ width: '100%', marginBottom: 20 }}>
+      <Select
+        style={{ width: 200 }}
+        value={sortBy}
+        onChange={setSortBy}
+        options={[
+          { value: 'latest', label: 'Latest' },
+          { value: 'price_asc', label: 'Price: Low to High' },
+          { value: 'price_desc', label: 'Price: High to Low' },
+          { value: 'rarity', label: 'Rarity' }
+        ]}
+      />
+      <Slider
+        range
+        value={priceRange}
+        onChange={setPriceRange}
+        max={1000}
+        marks={{
+          0: '0 APT',
+          1000: '1000 APT'
+        }}
+      />
+    </Space>
+
       {/* Filter Buttons */}
       <div style={{ marginBottom: "20px" }}>
         <Radio.Group
@@ -215,7 +263,7 @@ const MarketView: React.FC<MarketViewProps> = ({ marketplaceAddr }) => {
         <Pagination
           current={currentPage}
           pageSize={pageSize}
-          total={nfts.length}
+          total={filteredNfts.length}
           onChange={(page) => setCurrentPage(page)}
           style={{ display: "flex", justifyContent: "center" }}
         />

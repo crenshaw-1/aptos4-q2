@@ -1,18 +1,19 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "./App.css";
 import { Layout, Modal, Form, Input, Select, Button, message } from "antd";
 import NavBar from "./components/NavBar";
 import MarketView from "./pages/MarketView";
+import AuctionView from './pages/AuctionView';
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import MyNFTs from "./pages/MyNFTs";
 import { AptosClient } from "aptos";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 
 const client = new AptosClient("https://fullnode.devnet.aptoslabs.com/v1");
-const marketplaceAddr = "0x0dfcbff56c48e150cf9d73b19b625da39e90dcbe531429fdcd90d311b63413ed";
+const marketplaceAddr = "0x8a7bb6820951395ea0a351ff4ba8c551daf013f652e0791a7b60b67f71ced7b6";
 
 function App() {
-  const { signAndSubmitTransaction } = useWallet();
+  const { account, signAndSubmitTransaction } = useWallet();
   const [isModalVisible, setIsModalVisible] = useState(false);
 
   // Function to open the Mint NFT modal
@@ -42,6 +43,38 @@ function App() {
     }
   };
 
+  const initializeMarketplace = async () => {    
+    try {
+        // Check if marketplace is already initialized
+        await client.getAccountResource(
+            marketplaceAddr,
+            `${marketplaceAddr}::NFTMarketplace::Marketplace`
+        );
+        console.log("Marketplace already initialized");
+    } catch (error) {
+        // If resource doesn't exist, initialize the marketplace
+        try {
+            const transaction = {
+                type: "entry_function_payload",
+                function: `${marketplaceAddr}::NFTMarketplace::initialize`,
+                type_arguments: [],
+                arguments: []
+            };
+
+            const response = await (window as any).aptos.signAndSubmitTransaction(transaction);
+            await client.waitForTransaction(response.hash);
+            console.log("Marketplace initialized successfully");
+          } catch (initError) {
+              console.error("Error initializing marketplace:", initError);
+          }
+      }
+  };
+
+// Add this useEffect hook in your App component
+useEffect(() => {
+    initializeMarketplace();
+}, []);
+
   return (
     <Router>
       <Layout>
@@ -50,6 +83,7 @@ function App() {
         <Routes>
           <Route path="/" element={<MarketView marketplaceAddr={marketplaceAddr} />} />
           <Route path="/my-nfts" element={<MyNFTs />} />
+          <Route path="/auctions" element={<AuctionView marketplaceAddr={marketplaceAddr} />} />
         </Routes>
 
         <Modal
