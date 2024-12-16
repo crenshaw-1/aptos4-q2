@@ -8,7 +8,10 @@ import { hexToUint8Array } from './utils';
 
 const client = new AptosClient(APTOS_NODE_URL);
 
-export const fetchNFTsForOwner = async (ownerAddress: string): Promise<NFT[]> => {
+export const fetchNFTsForOwner = async (
+  ownerAddress: string, 
+  selectedRarity?: number
+): Promise<NFT[]> => {
   const nftIdsResponse = await client.view({
     function: `${MARKETPLACE_ADDRESS}::NFTMarketplace::get_all_nfts_for_owner`,
     arguments: [MARKETPLACE_ADDRESS, ownerAddress, "100", "0"],
@@ -29,11 +32,11 @@ export const fetchNFTsForOwner = async (ownerAddress: string): Promise<NFT[]> =>
       const inAuction = await checkAuctionStatus(Number(nftId));
 
       return {
-        id: nftId,
+        id: Number(nftId),
         name: decodeHexString(String(name)),
         description: decodeHexString(String(description)),
         uri: decodeHexString(String(uri)),
-        rarity,
+        rarity: Number(rarity),
         price: Number(price) / OCTAS,
         for_sale: forSale,
         in_auction: inAuction,
@@ -41,9 +44,12 @@ export const fetchNFTsForOwner = async (ownerAddress: string): Promise<NFT[]> =>
       };
     })
   );
-
-  return nfts as NFT[];
+  
+  return selectedRarity !== undefined 
+    ? nfts.filter(nft => nft.rarity === selectedRarity) 
+    : nfts as NFT[];
 };
+
 
 export const checkAuctionStatus = async (nftId: number): Promise<boolean> => {
   const response = await client.view({

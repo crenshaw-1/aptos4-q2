@@ -17,9 +17,9 @@ const client = new AptosClient("https://fullnode.devnet.aptoslabs.com/v1");
 const MyNFTs: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [nfts, setNfts] = useState<NFT[]>([]);
-   const [rarity, setRarity] = useState<RarityFilter>('all');
-     const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
-     const [sortBy, setSortBy] = useState<SortOption>('latest');
+  const [rarity, setRarity] = useState<RarityFilter>('all');
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
+  const [sortBy, setSortBy] = useState<SortOption>('latest');
   const [selectedNft, setSelectedNft] = useState<NFT | null>(null);
   const [modalStates, setModalStates] = useState({
     sell: false,
@@ -35,10 +35,10 @@ const MyNFTs: React.FC = () => {
 
   const { account, signAndSubmitTransaction } = useWallet();
 
-  const fetchUserNFTs = useCallback(async () => {
+  const fetchUserNFTs = useCallback(async (selectedRarity?: number) => {
     if (!account) return;
     try {
-      const userNFTs = await fetchNFTsForOwner(account.address);
+      const userNFTs = await fetchNFTsForOwner(account.address, selectedRarity);
       console.log("NFTS:", userNFTs);
       setNfts(userNFTs);
     } catch (error) {
@@ -46,9 +46,10 @@ const MyNFTs: React.FC = () => {
       message.error("Failed to fetch your NFTs.");
     }
   }, [account]);
+  
 
   useEffect(() => {
-    fetchUserNFTs();
+    fetchUserNFTs(rarity === 'all' ? undefined : rarity);
     const interval = setInterval(fetchUserNFTs, 10000);
     return () => clearInterval(interval);
   }, [fetchUserNFTs]);
